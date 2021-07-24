@@ -1,0 +1,155 @@
+<html>
+<script src='https://d3js.org/d3.v5.min.js'></script>
+
+<head>
+    <h2>
+        Vehicle Fuel Efficiency in 2017
+    </h2>
+    <h6>
+        The size of circles represents the number of cylinders. The color represents the makes. The verticle axis is the log of the average highway mpg while the horizontal axis is the log of the average city mpg. 
+    </h6>
+    <h6>
+        Hover over datapoints for more info! You can also adjust the zoom!
+    </h6>
+</head>
+<button id="all">1</button>
+<button id="diesel">2</button>
+<button id="gasoline">3</button>
+<button id="electricity">4</button>
+<body onload='init()'>
+    <h3 id="type">All Fuel Category of Vehicles</h3>
+    <h4 id="type_text">Comparing all different vehicle fuel types together. The number of cylinders seems correlated to the average MPG.</h4>
+    <svg width=800 height=800 viewBox="0 0 400 400">
+    </svg>
+
+    <script>
+        async function init() {
+            const data = await d3.csv('https://flunky.github.io/cars2017.csv');
+            change_scene(data, 'all');
+
+            // These are also paramters for triggers
+            document.getElementById('all').addEventListener('click', function () { 
+                change_scene(data, 'all'); 
+                document.getElementById("type").innerHTML = "All Fuel Category of Vehicles";
+                document.getElementById("type_text").innerHTML = "Comparing all different vehicle fuel types together. The number of cylinders seems correlated to the average MPG.";
+            });
+            document.getElementById('diesel').addEventListener('click', function () { 
+                change_scene(data, 'Diesel');
+                document.getElementById("type").innerHTML = "Diesel Vehicles";
+                document.getElementById("type_text").innerHTML = "It is apparent that there aren't many vehicles in this category, possibly signifying that manufacturers are moving away from this fuel type. Compared to the first slide, diesel vehicles seem to have decent fuel efficiency.";
+            });
+            document.getElementById('gasoline').addEventListener('click', function () { 
+                change_scene(data, 'Gasoline'); 
+                document.getElementById("type").innerHTML = "Gasoline Vehicles";
+                document.getElementById("type_text").innerHTML = "Here we can see that vehicles running on gas are very popular. Fuel efficiency ranges from poor to pretty good.";
+            });
+            document.getElementById('electricity').addEventListener('click', function () { 
+                change_scene(data, 'Electricity'); 
+                document.getElementById("type").innerHTML = "Electric Vehicles";
+                document.getElementById("type_text").innerHTML = "Electric vehicles have the best fuel efficiency, completely eclipsing other fuel categories. However, these are not very common in 2017.";
+            });
+        }
+
+        /**
+         * The parameter and triggers occur here
+         */
+        function change_scene(originalData, fuelType) {
+            d3.select('svg').selectAll('*').remove();
+            d3.select('svg').html = "";
+            var margin = 50;
+            var data;
+            var makes = new Set(originalData.map(({ Make }) => Make));
+            makes = [...makes];
+
+
+            if (fuelType == 'all') {
+                data = originalData;
+            }
+            else {
+                data = originalData.filter((car) => car.Fuel == fuelType);
+            }
+
+
+            var x = d3.scaleLog()
+                .domain([10, 150])
+                .range([0, 200]);
+
+            var y = d3.scaleLog()
+                .domain([10, 150])
+                .range([200, 0]);
+
+            var colors = d3.scaleOrdinal()
+                .domain(makes)
+                .range(d3.range(makes.length).map(d3.scaleSequential()
+                    .domain([0, makes.length - 1])
+                    .interpolator(d3.interpolateRainbow)));
+
+            var zoom = d3.zoom()
+                .scaleExtent([1, 100])
+                .extent([[0, 0], [200, 200]])
+                .on('zoom', update);
+
+            d3.select('svg')
+                .append('g')
+                .attr('transform', 'translate(' + margin + ',' + margin + ')')
+                .selectAll('circle')
+                .data(data)
+                .enter()
+                .append('circle')
+                .attr('cx', function (d, i) { return x(parseInt(d.AverageCityMPG)) })
+                .attr('cy', function (d, i) { return y(parseInt(d.AverageHighwayMPG)) })
+                .attr('r', function (d, i) { return 2 + parseInt(d.EngineCylinders) })
+                .style('fill', function (d, i) { return colors(d.Make) })
+                .style('stroke', 'black')
+                .append('title')
+                .text(function (d, i) {
+                    return "Make: " + d.Make
+                        + "\nAverage City MPG: " + parseInt(d.AverageCityMPG)
+                        + "\nAverage Highway MPG: " + parseInt(d.AverageHighwayMPG)
+                        + "\nNumber of Cylinders: " + parseInt(d.EngineCylinders)
+                        + "\nFuel: " + d.Fuel;
+                });
+
+            d3.select('svg')
+                .call(zoom);
+
+            var yAxis = d3.select('svg')
+                .append('g')
+                .attr('transform', 'translate(' + margin + ',' + margin + ')')
+                .call(d3.axisLeft(y)
+                    .tickValues([10, 20, 50, 100])
+                    .tickFormat(d3.format("~s")));
+
+            var xAxis = d3.select('svg')
+                .append('g')
+                .attr('transform', 'translate(' + margin + ',' + (margin + 200) + ')')
+                .call(d3.axisBottom(x)
+                    .tickValues([10, 20, 50, 100])
+                    .tickFormat(d3.format("~s")));
+
+            function update() {
+
+                var updatedX = d3.event.transform.rescaleX(x);
+                var updatedY = d3.event.transform.rescaleY(y);
+
+                // update axes with these new boundaries
+                xAxis.call(d3.axisBottom(updatedX)
+                    .tickValues([10, 20, 50, 100])
+                    .tickFormat(d3.format("~s")));
+
+                yAxis.call(d3.axisLeft(updatedY)
+                    .tickValues([10, 20, 50, 100])
+                    .tickFormat(d3.format("~s")));
+
+                // update circle position
+                d3.select('svg')
+                    .selectAll('circle')
+                    .attr('cx', function (d, i) { return updatedX(d.AverageCityMPG) })
+                    .attr('cy', function (d, i) { return updatedY(d.AverageHighwayMPG) });
+            };
+        }
+
+    </script>
+</body>
+
+</html>
